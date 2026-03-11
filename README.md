@@ -16,7 +16,7 @@ Valix is a REST API that validates Spanish fiscal identifiers in a single reques
 ```bash
 curl -X POST https://api.getvalix.io/v1/validate/trial \
   -H "Content-Type: application/json" \
-  -d '{"identifiers": ["48488584F"]}'
+  -d '{"items": [{"value": "48488584F", "type": "NIF"}]}'
 ```
 
 Response:
@@ -36,6 +36,38 @@ Response:
     }
   ]
 }
+```
+
+## Identifier Types
+
+The `type` field accepts the following values:
+
+| Value | Description |
+|-------|-------------|
+| `AUTO` | Automatic detection (recommended) |
+| `NIF` | Número de Identificación Fiscal |
+| `NIE` | Número de Identidad de Extranjero |
+| `CIF` | Código de Identificación Fiscal |
+| `IBAN` | International Bank Account Number |
+
+**Example with automatic detection:**
+```bash
+curl -X POST https://api.getvalix.io/v1/validate/trial \
+  -H "Content-Type: application/json" \
+  -d '{"items": [{"value": "48488584F", "type": "AUTO"}]}'
+```
+
+**Example with multiple identifiers:**
+```bash
+curl -X POST https://api.getvalix.io/v1/validate/trial \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": [
+      {"value": "48488584F", "type": "NIF"},
+      {"value": "ES1814650100981713109282", "type": "IBAN"},
+      {"value": "X1234567L", "type": "AUTO"}
+    ]
+  }'
 ```
 
 ## Examples
