@@ -16,7 +16,7 @@ Valix is a REST API that validates Spanish fiscal identifiers in a single reques
 ```bash
 curl -X POST https://api.getvalix.io/v1/validate/trial \
   -H "Content-Type: application/json" \
-  -d '{"items": [{"value": "48488584F", "type": "NIF"}]}'
+  -d '{"items": [{"value": "12345678Z", "type": "NIF"}]}'
 ```
 
 Response:
@@ -28,7 +28,7 @@ Response:
   "results": [
     {
       "index": 0,
-      "value": "48488584F",
+      "value": "12345678Z",
       "detected_type": "NIF",
       "valid": true,
       "formatted": "48488584F",
@@ -54,7 +54,7 @@ The `type` field accepts the following values:
 ```bash
 curl -X POST https://api.getvalix.io/v1/validate/trial \
   -H "Content-Type: application/json" \
-  -d '{"items": [{"value": "48488584F", "type": "AUTO"}]}'
+  -d '{"items": [{"value": "12345678Z", "type": "AUTO"}]}'
 ```
 
 **Example with multiple identifiers:**
@@ -63,7 +63,7 @@ curl -X POST https://api.getvalix.io/v1/validate/trial \
   -H "Content-Type: application/json" \
   -d '{
     "items": [
-      {"value": "48488584F", "type": "NIF"},
+      {"value": "12345678Z", "type": "NIF"},
       {"value": "ES1814650100981713109282", "type": "IBAN"},
       {"value": "X1234567L", "type": "AUTO"}
     ]
@@ -79,7 +79,7 @@ curl -X POST https://api.getvalix.io/v1/validate/trial \
 
 ## API Reference
 
-Full documentation at [getvalix.io](https://getvalix.io).
+Learn more at [getvalix.io](https://getvalix.io).
 
 ## Free Trial
 
@@ -88,7 +88,7 @@ Test the API without registration at [getvalix.io](https://getvalix.io) or use t
 POST https://api.getvalix.io/v1/validate/trial
 ```
 
-10 free validations per day. No API key required.
+50 free validations per day. No API key required.
 
 ## License
 
