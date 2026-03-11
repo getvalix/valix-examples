@@ -64,7 +64,7 @@ curl -X POST https://api.getvalix.io/v1/validate/trial \
   -d '{
     "items": [
       {"value": "12345678Z", "type": "NIF"},
-      {"value": "ES1814650100981713109282", "type": "IBAN"},
+      {"value": "ES9121000418450200051332", "type": "IBAN"},
       {"value": "X1234567L", "type": "AUTO"}
     ]
   }'
