@@ -31,7 +31,7 @@ Response:
       "value": "12345678Z",
       "detected_type": "NIF",
       "valid": true,
-      "formatted": "48488584F",
+      "formatted": "12345678Z",
       "errors": []
     }
   ]
