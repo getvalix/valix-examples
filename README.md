@@ -92,7 +92,7 @@ POST https://api.getvalix.io/v1/validate/trial
 
 ## Pruébalo en Postman
 
-[![Run in Postman](https://run.pstmn.io/button.svg)]([TU_URL_AQUÍ](https://web.postman.co/workspace/My-Workspace~a85a198c-5301-487c-8394-976d83a8c5a5/collection/6285307-6c0c20f9-4cb0-4baf-b2c7-5c328d12ed3f?action=share&source=copy-link&creator=6285307))
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://web.postman.co/workspace/My-Workspace~a85a198c-5301-487c-8394-976d83a8c5a5/collection/6285307-6c0c20f9-4cb0-4baf-b2c7-5c328d12ed3f?action=share&source=copy-link&creator=6285307)
 
 ## License
 
