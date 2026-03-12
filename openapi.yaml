@@ -1,0 +1,629 @@
+openapi: 3.0.3
+info:
+  title: Valix API
+  description: |
+    API REST para validación y parsing de identificadores fiscales españoles.
+    
+    Valix API permite validar NIF, NIE, CIF e IBAN españoles mediante llamadas API simples,
+    sin necesidad de implementar los algoritmos oficiales internamente.
+    
+    ## ¿Qué es una validación?
+    
+    Una **validación** es el procesamiento de un único identificador fiscal:
+    - **1 identificador = 1 validación**: Cada NIF, NIE, CIF o IBAN cuenta como una validación individual
+    - **Llamadas batch**: Si envías 10 identificadores en una llamada, consumes 10 validaciones
+    - **Consistencia**: Este modelo aplica tanto al endpoint trial como a los planes de pago
+    
+    **Ejemplo:** Una llamada con 3 identificadores consume 3 validaciones de tu cuota.
+    
+    ## Autenticación
+    
+    Todas las solicitudes requieren una API key válida enviada en el header `X-API-Key`.
+    Puedes obtener tu API key suscribiéndote a través de Stripe.
+    
+    ## Límites de Uso
+    
+    Los límites de uso dependen de tu plan de suscripción:
+    - **Starter**: 10.000 validaciones/mes - €19/mes
+    - **Growth**: 100.000 validaciones/mes - €49/mes
+    - **Pro**: 1.000.000 validaciones/mes - €149/mes
+    
+    ## Soporte
+    
+    Para soporte técnico, contacta: soporte@getvalix.io
+  version: 1.0.0
+  contact:
+    name: Valix API Support
+    email: soporte@getvalix.io
+  license:
+    name: Proprietary
+    
+servers:
+  - url: https://api.getvalix.io/v1
+    description: Servidor de producción
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Validación Batch
+    description: Validación de múltiples identificadores en una única llamada
+  - name: Validación Trial
+    description: Validación gratuita sin autenticación (50 validaciones/día por IP)
+
+paths:
+  /validate/trial:
+    post:
+      tags:
+        - Validación Trial
+      summary: Validar identificadores sin autenticación (trial)
+      description: |
+        Valida hasta 5 identificadores fiscales españoles sin necesidad de API key ni registro.
+        
+        Este endpoint permite:
+        - Probar la API sin suscripción
+        - Validar hasta 5 identificadores por llamada
+        - Máximo 50 validaciones por día por dirección IP
+        - Sin necesidad de autenticación
+        
+        ## Límites Trial
+        
+        - **Validaciones por día**: 50 por dirección IP
+        - **Identificadores por llamada**: Máximo 5
+        - **Ventana de tiempo**: 24 horas (se reinicia automáticamente)
+        - **Modelo de conteo**: Cada identificador cuenta como 1 validación (una llamada con 5 items consume 5 validaciones)
+        
+        ## Detección Automática de Tipos
+        
+        Cuando se usa `type: "AUTO"`, el sistema detecta automáticamente el tipo según estas reglas:
+        - **NIE**: Comienza con X, Y o Z
+        - **IBAN**: Comienza con ES y tiene exactamente 24 caracteres
+        - **CIF**: Comienza con A, B, C, D, E, F, G, H, J, N, P, Q, R, S, U, V o W
+        - **NIF**: Cualquier otro formato (por defecto)
+        
+        ## Headers de Respuesta
+        
+        - `X-RateLimit-Limit`: Límite diario de validaciones (50)
+        - `X-RateLimit-Remaining`: Validaciones restantes para hoy
+      operationId: validateTrial
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrialRequest'
+            examples:
+              single_identifier:
+                summary: Un solo identificador
+                value:
+                  items:
+                    - value: "12345678Z"
+                      type: "AUTO"
+              multiple_identifiers:
+                summary: Múltiples identificadores (máx. 5)
+                value:
+                  items:
+                    - value: "12345678Z"
+                      type: "NIF"
+                    - value: "X1234567L"
+                      type: "NIE"
+                    - value: "A12345674"
+                      type: "CIF"
+      responses:
+        '200':
+          description: Validación exitosa
+          headers:
+            X-RateLimit-Limit:
+              description: Límite diario de validaciones
+              schema:
+                type: integer
+                example: 50
+            X-RateLimit-Remaining:
+              description: Validaciones restantes para hoy
+              schema:
+                type: integer
+                example: 45
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResponse'
+              examples:
+                valid_nif:
+                  summary: NIF válido
+                  value:
+                    total: 1
+                    valid_count: 1
+                    invalid_count: 0
+                    results:
+                      - index: 0
+                        value: "12345678Z"
+                        requested_type: "AUTO"
+                        detected_type: "NIF"
+                        valid: true
+                        formatted: "12345678Z"
+                        errors: []
+                mixed_results:
+                  summary: Resultados mixtos
+                  value:
+                    total: 3
+                    valid_count: 2
+                    invalid_count: 1
+                    results:
+                      - index: 0
+                        value: "12345678Z"
+                        requested_type: "NIF"
+                        detected_type: "NIF"
+                        valid: true
+                        formatted: "12345678Z"
+                        errors: []
+                      - index: 1
+                        value: "INVALID"
+                        requested_type: "AUTO"
+                        detected_type: "NIF"
+                        valid: false
+                        formatted: ""
+                        errors: ["Formato inválido"]
+                      - index: 2
+                        value: "X1234567L"
+                        requested_type: "NIE"
+                        detected_type: "NIE"
+                        valid: true
+                        formatted: "X1234567L"
+                        errors: []
+        '400':
+          description: Error en la solicitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                too_many_items:
+                  summary: Demasiados identificadores
+                  value:
+                    error: "El endpoint trial permite máximo 5 identificadores por llamada"
+                    code: "TRIAL_LIMIT_EXCEEDED"
+                invalid_json:
+                  summary: JSON inválido
+                  value:
+                    error: "JSON inválido en cuerpo de solicitud"
+                    code: "INVALID_JSON"
+        '429':
+          description: Límite diario excedido
+          headers:
+            X-RateLimit-Limit:
+              description: Límite diario de validaciones
+              schema:
+                type: integer
+                example: 50
+            X-RateLimit-Remaining:
+              description: Validaciones restantes (0 cuando se excede)
+              schema:
+                type: integer
+                example: 0
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rate_limit_exceeded:
+                  summary: Límite diario excedido
+                  value:
+                    error: "Límite diario de prueba alcanzado. Suscríbete para acceso ilimitado."
+                    code: "TRIAL_RATE_LIMIT_EXCEEDED"
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internal_error:
+                  summary: Error interno
+                  value:
+                    error: "Error interno del servidor"
+                    code: "INTERNAL_ERROR"
+  
+  /validate/batch:
+    post:
+      tags:
+        - Validación Batch
+      summary: Validar múltiples identificadores fiscales
+      description: |
+        Valida hasta 100 identificadores fiscales españoles (NIF, NIE, CIF, IBAN) en una única llamada API.
+        
+        Este endpoint permite:
+        - Validar múltiples identificadores de diferentes tipos en una sola solicitud
+        - Especificar el tipo de identificador explícitamente o usar detección automática
+        - Procesar todos los elementos incluso si algunos fallan la validación
+        - Obtener resultados detallados para cada identificador con su índice correspondiente
+        
+        ## Detección Automática de Tipos
+        
+        Cuando se usa `type: "AUTO"`, el sistema detecta automáticamente el tipo según estas reglas:
+        - **NIE**: Comienza con X, Y o Z
+        - **IBAN**: Comienza con ES y tiene exactamente 24 caracteres
+        - **CIF**: Comienza con A, B, C, D, E, F, G, H, J, N, P, Q, R, S, U, V o W
+        - **NIF**: Cualquier otro formato (por defecto)
+        
+        ## Límites
+        
+        - Máximo 100 identificadores por solicitud
+        - Tamaño máximo de payload: 1MB
+        - Timeout: 30 segundos
+      operationId: validateBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRequest'
+            examples:
+              mixed_types:
+                summary: Tipos mixtos con detección automática
+                value:
+                  items:
+                    - value: "12345678Z"
+                      type: "AUTO"
+                    - value: "X1234567L"
+                      type: "AUTO"
+                    - value: "A12345674"
+                      type: "AUTO"
+                    - value: "ES7921000813610123456789"
+                      type: "AUTO"
+              explicit_types:
+                summary: Tipos especificados explícitamente
+                value:
+                  items:
+                    - value: "12345678Z"
+                      type: "NIF"
+                    - value: "X1234567L"
+                      type: "NIE"
+                    - value: "B87654321"
+                      type: "CIF"
+              invalid_identifiers:
+                summary: Identificadores inválidos
+                value:
+                  items:
+                    - value: "12345678A"
+                      type: "NIF"
+                    - value: "INVALID"
+                      type: "AUTO"
+                    - value: "ES12"
+                      type: "IBAN"
+      responses:
+        '200':
+          description: Batch procesado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResponse'
+              examples:
+                all_valid:
+                  summary: Todos los identificadores válidos
+                  value:
+                    total: 3
+                    valid_count: 3
+                    invalid_count: 0
+                    results:
+                      - index: 0
+                        value: "12345678Z"
+                        requested_type: "AUTO"
+                        detected_type: "NIF"
+                        valid: true
+                        formatted: "12345678Z"
+                        errors: []
+                      - index: 1
+                        value: "X1234567L"
+                        requested_type: "AUTO"
+                        detected_type: "NIE"
+                        valid: true
+                        formatted: "X1234567L"
+                        errors: []
+                      - index: 2
+                        value: "A12345674"
+                        requested_type: "AUTO"
+                        detected_type: "CIF"
+                        valid: true
+                        formatted: "A12345674"
+                        entity_type: "Sociedad Anónima"
+                        errors: []
+                mixed_results:
+                  summary: Resultados mixtos (válidos e inválidos)
+                  value:
+                    total: 4
+                    valid_count: 2
+                    invalid_count: 2
+                    results:
+                      - index: 0
+                        value: "12345678Z"
+                        requested_type: "NIF"
+                        detected_type: "NIF"
+                        valid: true
+                        formatted: "12345678Z"
+                        errors: []
+                      - index: 1
+                        value: "12345678A"
+                        requested_type: "NIF"
+                        detected_type: "NIF"
+                        valid: false
+                        formatted: ""
+                        errors: ["Dígito de control incorrecto"]
+                      - index: 2
+                        value: "X1234567L"
+                        requested_type: "NIE"
+                        detected_type: "NIE"
+                        valid: true
+                        formatted: "X1234567L"
+                        errors: []
+                      - index: 3
+                        value: "INVALID"
+                        requested_type: "AUTO"
+                        detected_type: "NIF"
+                        valid: false
+                        formatted: ""
+                        errors: ["Formato inválido"]
+                empty_batch:
+                  summary: Batch vacío
+                  value:
+                    total: 0
+                    valid_count: 0
+                    invalid_count: 0
+                    results: []
+        '400':
+          description: Error en la solicitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                batch_size_exceeded:
+                  summary: Tamaño de batch excedido
+                  value:
+                    error: "El tamaño del batch excede el máximo de 100 items"
+                    code: "BATCH_SIZE_EXCEEDED"
+                invalid_json:
+                  summary: JSON inválido
+                  value:
+                    error: "JSON inválido en cuerpo de solicitud"
+                    code: "INVALID_JSON"
+                missing_field:
+                  summary: Campo requerido faltante
+                  value:
+                    error: "Campo requerido faltante: items"
+                    code: "MISSING_FIELD"
+                invalid_type:
+                  summary: Valor de tipo inválido
+                  value:
+                    error: "Valor de tipo inválido: INVALID_TYPE. Debe ser uno de: NIF, NIE, CIF, IBAN, AUTO"
+                    code: "INVALID_TYPE"
+        '401':
+          description: API key faltante o inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_api_key:
+                  summary: API key faltante
+                  value:
+                    error: "API key requerida"
+                    code: "MISSING_API_KEY"
+                invalid_api_key:
+                  summary: API key inválida
+                  value:
+                    error: "API key inválida"
+                    code: "INVALID_API_KEY"
+        '413':
+          description: Payload demasiado grande
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                payload_too_large:
+                  summary: Payload excede 1MB
+                  value:
+                    error: "El tamaño del payload excede el límite de 1MB"
+                    code: "PAYLOAD_TOO_LARGE"
+        '429':
+          description: Límite de uso excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rate_limit_exceeded:
+                  summary: Límite de uso excedido
+                  value:
+                    error: "Límite de uso mensual excedido"
+                    code: "RATE_LIMIT_EXCEEDED"
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internal_error:
+                  summary: Error interno
+                  value:
+                    error: "Error interno del servidor"
+                    code: "INTERNAL_ERROR"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API key para autenticación. Obtén tu API key en el portal de cliente.
+  
+  schemas:
+    TrialRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          description: Lista de identificadores a validar (máximo 5 para trial)
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/RequestItem'
+      example:
+        items:
+          - value: "12345678Z"
+            type: "AUTO"
+          - value: "X1234567L"
+            type: "NIE"
+    
+    BatchRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          description: Lista de identificadores a validar (máximo 100)
+          minItems: 0
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/RequestItem'
+      example:
+        items:
+          - value: "12345678Z"
+            type: "AUTO"
+          - value: "X1234567L"
+            type: "NIE"
+    
+    RequestItem:
+      type: object
+      required:
+        - value
+        - type
+      properties:
+        value:
+          type: string
+          description: Identificador fiscal a validar
+          minLength: 1
+          example: "12345678Z"
+        type:
+          type: string
+          description: |
+            Tipo de identificador a validar:
+            - **NIF**: Número de Identificación Fiscal (personas físicas españolas)
+            - **NIE**: Número de Identidad de Extranjero (extranjeros residentes)
+            - **CIF**: Código de Identificación Fiscal (empresas españolas)
+            - **IBAN**: International Bank Account Number (cuentas bancarias españolas)
+            - **AUTO**: Detección automática del tipo
+          enum:
+            - NIF
+            - NIE
+            - CIF
+            - IBAN
+            - AUTO
+          example: "AUTO"
+    
+    BatchResponse:
+      type: object
+      required:
+        - total
+        - valid_count
+        - invalid_count
+        - results
+      properties:
+        total:
+          type: integer
+          description: Número total de identificadores procesados
+          minimum: 0
+          example: 3
+        valid_count:
+          type: integer
+          description: Número de identificadores válidos
+          minimum: 0
+          example: 2
+        invalid_count:
+          type: integer
+          description: Número de identificadores inválidos
+          minimum: 0
+          example: 1
+        results:
+          type: array
+          description: Lista de resultados de validación
+          items:
+            $ref: '#/components/schemas/ResultItem'
+    
+    ResultItem:
+      type: object
+      required:
+        - index
+        - value
+        - requested_type
+        - detected_type
+        - valid
+        - formatted
+        - errors
+      properties:
+        index:
+          type: integer
+          description: Posición del identificador en la solicitud original (base 0)
+          minimum: 0
+          example: 0
+        value:
+          type: string
+          description: Valor de entrada original
+          example: "12345678Z"
+        requested_type:
+          type: string
+          description: Tipo especificado en la solicitud
+          enum:
+            - NIF
+            - NIE
+            - CIF
+            - IBAN
+            - AUTO
+          example: "AUTO"
+        detected_type:
+          type: string
+          description: Tipo detectado o validado
+          enum:
+            - NIF
+            - NIE
+            - CIF
+            - IBAN
+          example: "NIF"
+        valid:
+          type: boolean
+          description: Indica si el identificador es válido
+          example: true
+        formatted:
+          type: string
+          description: Identificador normalizado (vacío si inválido)
+          example: "12345678Z"
+        errors:
+          type: array
+          description: Lista de mensajes de error (vacía si válido)
+          items:
+            type: string
+          example: []
+        entity_type:
+          type: string
+          description: Tipo de entidad (solo para CIF válidos)
+          example: "Sociedad Anónima"
+    
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+          description: Mensaje de error descriptivo
+          example: "El tamaño del batch excede el máximo de 100 items"
+        code:
+          type: string
+          description: Código de error para manejo programático
+          example: "BATCH_SIZE_EXCEEDED"
