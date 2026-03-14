@@ -76,6 +76,7 @@ curl -X POST https://api.getvalix.io/v1/validate/trial \
 - [Python](examples/python/)
 - [JavaScript](examples/javascript/)
 - [PHP](examples/php/)
+- [Node.js SDK — `@valix/sdk`](examples/nodejs-sdk/)
 
 ## API Reference
 

@@ -1,0 +1,16 @@
+{
+  "name": "valix-nodejs-sdk-examples",
+  "version": "1.0.0",
+  "description": "Examples using the official @valix/sdk for Node.js",
+  "type": "module",
+  "scripts": {
+    "trial": "node trial.js",
+    "batch": "node batch.js"
+  },
+  "dependencies": {
+    "@valix/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
